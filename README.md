@@ -15,7 +15,8 @@
    	- Strawberry Perl >= 5.28.0
 	- Mingw64 and development toolchains (on Windows)
 	- HISAT2
-	- Samtools (and Htslib)
+	- Samtools and Htslib
+	- NCBI SRA Toolkit (for your OS)
    
    BEFORE RUNNING:
 
