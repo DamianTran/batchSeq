@@ -147,14 +147,12 @@ int main(int argc, char** argv){
             dataMatrix.back().emplace_back();
             dataMatrix.back().back().assign(fileData + lastIndex, fileData + i);
             lastIndex = i+1;
-            ++i;
         }
         else if(fileData[i] == '\n'){
             dataMatrix.back().emplace_back();
             dataMatrix.back().back().assign(fileData + lastIndex, fileData + i);
             dataMatrix.emplace_back();
             lastIndex = i+1;
-            ++i;
         }
     }
 
@@ -163,10 +161,12 @@ int main(int argc, char** argv){
     vector<string> accIDs,
                   sampleIDs;
 
+    cout << "Detected table with " << dataMatrix.size()-1 << " entries" << endl;
+
     for(size_t i = 0; i < dataMatrix[0].size(); ++i){ // Check the header for the appropriate columns
         if(dataMatrix[0][i] == "Run"){
             for(size_t j = 1; j < dataMatrix.size(); ++j){
-                if(dataMatrix[j].size() > j){
+                if(dataMatrix[j].size() > i){
                     accIDs.push_back(dataMatrix[j][i]);
                 }
             }
@@ -314,7 +314,7 @@ int main(int argc, char** argv){
                     strbuf.str("");
                     cout << endl;
 
-                    if(!access(sample_sorted_FN, X_OK)){
+                    if(!access(sample_sorted_FN.c_str(), X_OK)){
                         remove(sample_bam_FN.c_str());
                         rename(sample_sorted_FN.c_str(), sample_bam_FN.c_str());
                     }
