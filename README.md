@@ -1,4 +1,5 @@
 # batchSEQ
+
     >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
     batchSEQ - a simple batch program for automated downloading and processing of raw sequencing reads
@@ -47,6 +48,7 @@
                         alignments.
                                                                                                         
     EXECUTION:
+    
 	2 ways:
 
 	1: Run by copying into the directory where you'd like to
