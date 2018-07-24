@@ -200,133 +200,139 @@ int main(int argc, char** argv){
                     sam_FN,
                     bam_FN,
                     sample_bam_FN,
-                    sample_sorted_FN;
+                    sample_sorted_FN,
+                    acc_ID;
 
         unsigned int accIndex = 0;
-        for(auto& ID : accIDs){ // Download and process the reads one accession at a time
-
-            fastq_1_FN = directory + "/" + ID + "_1.fastq";
-            fastq_2_FN = directory + "/" + ID + "_2.fastq";
-            sam_FN = directory + "/" + ID + ".sam";
-            bam_FN = directory + "/" + ID + ".bam";
+        for(; accIndex < accIDs.size(); ++accIndex){ // Pre-check for processed files if resuming
+            bam_FN = directory + "/" + accIDs[accIndex] + ".bam";
             sample_bam_FN = directory + "/" + sampleIDs[accIndex] + ".bam";
 
-            if(!access(bam_FN.c_str(), X_OK)){
-                cout << "Detected BAM file for accession " << ID << " ... skipping processing" << endl;
-            }
-            else{
-
-                cout << "Obtaining read data for " << ID << "... " << endl;
-                strbuf << "fastq-dump -I --split-files " << ID << " --outdir " << directory;
-                system(strbuf.str().c_str());
-                strbuf.str("");
-                cout << endl;
-
-                if(!access(fastq_1_FN.c_str(), X_OK) &&
-                   !access(fastq_2_FN.c_str(), X_OK)){
-
-                    cout << "Aligning paired-end read data into " << ID << ".sam ..." << endl;
-
-                    /*
-                        HISAT2 perl script with params:
-                            -q [fastq input]
-                            -p 4 [4 threads]
-                            -x [genome index]
-                            -1 [forward read file]
-                            -2 [reverse read file]
-                            -S [output file]
-                    */
-
-                    strbuf << "perl C:/hisat2/hisat2 -q -p " << to_string(numThreads) << " -x "
-                            << genomeIndex << " -1 " << fastq_1_FN << " -2 "
-                            << fastq_2_FN << " -S " << sam_FN;
-
-                    system(strbuf.str().c_str());
-                    strbuf.str("");
-                    cout << endl;
-                }
-
-                if(!access(fastq_1_FN.c_str(), X_OK)){
-                    remove(fastq_1_FN.c_str());
-                }
-                if(!access(fastq_2_FN.c_str(), X_OK)){
-                    remove(fastq_2_FN.c_str());
-                }
-
-                cout << "Converting to *.BAM format ... " << endl;
-                strbuf << "samtools view -bS " << sam_FN << " > " << bam_FN;
-                system(strbuf.str().c_str());
-                strbuf.str("");
-                cout << endl;
-
-                if(!access(sam_FN.c_str(), X_OK)){
-                    remove(sam_FN.c_str());
-                }
-
-                if(access(bam_FN.c_str(), X_OK)){
-                    cout << "Failed to produce *.BAM format for accession " << ID << endl;
-                    cout << "Exiting...";
+            if(!access(sample_bam_FN.c_str(), X_OK)){
+                if(!access(bam_FN.c_str(), X_OK)){ // Detect if a bam file is present for this sample indicating partial processing
+                    remove(bam_FN.c_str()); // Stop at this accession index and reprocess the BAM file
                     break;
                 }
-                else
-                    cout << "Successfully produced *.BAM format for accession " << ID << endl;
+            }
+        }
 
+        for(; accIndex < accIDs.size(); ++accIndex){ // Download and process the reads one accession at a time
+
+            acc_ID = accIDs[accIndex];
+
+            fastq_1_FN = directory + "/" + acc_ID + "_1.fastq";
+            fastq_2_FN = directory + "/" + acc_ID + "_2.fastq";
+            sam_FN = directory + "/" + acc_ID + ".sam";
+            bam_FN = directory + "/" + acc_ID + ".bam";
+            sample_bam_FN = directory + "/" + sampleIDs[accIndex] + ".bam";
+
+            cout << "Obtaining read data for " << acc_ID << "... " << endl;
+            strbuf << "fastq-dump -I --split-files " << acc_ID << " --outdir " << directory;
+            system(strbuf.str().c_str());
+            strbuf.str("");
+            cout << endl;
+
+            if(!access(fastq_1_FN.c_str(), X_OK) &&
+               !access(fastq_2_FN.c_str(), X_OK)){
+
+                cout << "Aligning paired-end read data into " << acc_ID << ".sam ..." << endl;
+
+                /*
+                    HISAT2 perl script with params:
+                        -q [fastq input]
+                        -p 4 [4 threads]
+                        -x [genome index]
+                        -1 [forward read file]
+                        -2 [reverse read file]
+                        -S [output file]
+                */
+
+                strbuf << "perl C:/hisat2/hisat2 -q -p " << to_string(numThreads) << " -x "
+                        << genomeIndex << " -1 " << fastq_1_FN << " -2 "
+                        << fastq_2_FN << " -S " << sam_FN;
+
+                system(strbuf.str().c_str());
+                strbuf.str("");
+                cout << endl;
             }
 
-            if((accIndex == sampleIDs.size() - 1) ||
-                        (sampleIDs[accIndex] != sampleIDs[accIndex+1])){ // Merge and sort if all BAM files for this sample have been accounted for
+            if(!access(fastq_1_FN.c_str(), X_OK)){
+                remove(fastq_1_FN.c_str());
+            }
+            if(!access(fastq_2_FN.c_str(), X_OK)){
+                remove(fastq_2_FN.c_str());
+            }
 
-                vector<string> parts; // Collect part accession IDs for this sample
-                int i = accIndex;
-                cout << "Merging:\n";
-                while((i >= 0) && (sampleIDs[i] == sampleIDs[accIndex])){
-                    parts.push_back(directory + "/" + accIDs[i] + ".bam");
-                    if(access(parts.back().c_str(), X_OK)){
-                        cout << "Missing part: " << parts.back() << "\n";
-                        cout << "Unable to complete sample " << sampleIDs[accIndex] << endl;
-                        return -1;
-                    }
-                    cout << '\t' << parts.back() << '\n';
-                    --i;
-                }
-                cout << "Into: " << sample_bam_FN << endl;
+            cout << "Converting to *.BAM format ... " << endl;
+            strbuf << "samtools view -bS " << sam_FN << " > " << bam_FN;
+            system(strbuf.str().c_str());
+            strbuf.str("");
+            cout << endl;
 
-                strbuf << "samtools merge " << sample_bam_FN;
-                for(auto& p : parts){
-                    strbuf << " " << p;
-                }
-                system(strbuf.str().c_str()); // Perform merge using samtools
-                strbuf.str("");
+            if(!access(sam_FN.c_str(), X_OK)){
+                remove(sam_FN.c_str());
+            }
 
-                if(!access(sample_bam_FN.c_str(), X_OK)){
-                    cout << "Successfully created sample *.BAM file:\n" << sample_bam_FN << endl;
-                    for(auto& p : parts){ // Clean up parts
-                        if(!access(p.c_str(), X_OK)){
-                            remove(p.c_str());
-                        }
-                    }
+            if(access(bam_FN.c_str(), X_OK)){
+                cout << "Failed to produce *.BAM format for accession " << acc_ID << endl;
+                cout << "Exiting...";
+                break;
+            }
+            else
+                cout << "Successfully produced *.BAM format for accession " << acc_ID << endl;
 
-                    sample_sorted_FN = directory + "/" + sampleIDs[accIndex] + "_sorted.bam";
+        }
 
-                    strbuf << "samtools sort " << sample_bam_FN << " -o " << sample_sorted_FN;
-                    cout << "Sorting: " << sample_bam_FN << endl;
-                    system(strbuf.str().c_str());
-                    strbuf.str("");
-                    cout << endl;
+        if((accIndex == sampleIDs.size() - 1) ||
+                    (sampleIDs[accIndex] != sampleIDs[accIndex+1])){ // Merge and sort if all BAM files for this sample have been accounted for
 
-                    if(!access(sample_sorted_FN.c_str(), X_OK)){
-                        remove(sample_bam_FN.c_str());
-                        rename(sample_sorted_FN.c_str(), sample_bam_FN.c_str());
-                    }
-                }
-                else{
-                    cout << "Unable to create sample *.BAM file:\n" << sample_bam_FN << endl;
+            vector<string> parts; // Collect part accession IDs for this sample
+            int i = accIndex;
+            cout << "Merging:\n";
+            while((i >= 0) && (sampleIDs[i] == sampleIDs[accIndex])){
+                parts.push_back(directory + "/" + accIDs[i] + ".bam");
+                if(access(parts.back().c_str(), X_OK)){
+                    cout << "Missing part: " << parts.back() << "\n";
+                    cout << "Unable to complete sample " << sampleIDs[accIndex] << endl;
                     return -1;
                 }
-
+                cout << '\t' << parts.back() << '\n';
+                --i;
             }
+            cout << "Into: " << sample_bam_FN << endl;
 
-            ++accIndex;
+            strbuf << "samtools merge " << sample_bam_FN;
+            for(auto& p : parts){
+                strbuf << " " << p;
+            }
+            system(strbuf.str().c_str()); // Perform merge using samtools
+            strbuf.str("");
+
+            if(!access(sample_bam_FN.c_str(), X_OK)){
+                cout << "Successfully created sample *.BAM file:\n" << sample_bam_FN << endl;
+                for(auto& p : parts){ // Clean up parts
+                    if(!access(p.c_str(), X_OK)){
+                        remove(p.c_str());
+                    }
+                }
+
+                sample_sorted_FN = directory + "/" + sampleIDs[accIndex] + "_sorted.bam";
+
+                strbuf << "samtools sort " << sample_bam_FN << " -o " << sample_sorted_FN;
+                cout << "Sorting: " << sample_bam_FN << endl;
+                system(strbuf.str().c_str());
+                strbuf.str("");
+                cout << endl;
+
+                if(!access(sample_sorted_FN.c_str(), X_OK)){
+                    remove(sample_bam_FN.c_str());
+                    rename(sample_sorted_FN.c_str(), sample_bam_FN.c_str());
+                }
+            }
+            else{
+                cout << "Unable to create sample *.BAM file:\n" << sample_bam_FN << endl;
+                return -1;
+            }
         }
 
     }
