@@ -9,7 +9,14 @@
     (c) 2018 The Hope Cancer Lab, McMaster University
 
    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
+   
+   REQUIREMENTS:
+   
+   	- Strawberry Perl >= 5.28.0
+	- Mingw64 and development toolchains (on Windows)
+	- HISAT2
+	- Samtools (and Htslib)
+   
    BEFORE RUNNING:
 
         - In bash, set the PATH environment variable as follows (no spaces after the one following "export"):
