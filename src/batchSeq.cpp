@@ -188,8 +188,12 @@ int main(int argc, char** argv){
         }
     }
 
-    if(accIDs.size() > 0){
-        cout << "Found accession IDs:\n";
+    if(accIDs.size() < 1){
+	cout << "Could not find accession IDs in " << accFileName << endl;
+        return -1;
+    }
+        
+	cout << "Found accession IDs:\n";
         unsigned int maxPrint = 30, printIndex = 0;
         for(auto& ID : accIDs){
             cout << '\t' << ID;
@@ -223,19 +227,10 @@ int main(int argc, char** argv){
             if(!access(sample_bam_FN.c_str(), X_OK)){
                 cout << "Detected assembled *.BAM file for " << sample_ID << ": skipping" << endl;
                 while(sample_ID == sampleIDs[accIndex]) ++accIndex;
-                acc_ID = accIDs[accIndex];
-                bam_FN = directory + "/" + acc_ID + ".bam";
             }
-            if(!access(bam_FN.c_str(), X_OK)){ // Detect if a bam file is present for this sample indicating partial processing
-                if(!access(std::string(directory).append("/").append(accIDs[accIndex+1]).append(".bam").c_str(), X_OK)){
-                    cout << "Detected fragment *.BAM file for accession " << acc_ID << ": skipping" << endl;
-                }
-                else{
-//                    remove(bam_FN.c_str()); // Delete and resume from this point
-                    cout << "Found incomplete fragment " << bam_FN << ": resuming" << endl;
-                    break;
-                }
-            }
+	    else{
+		break;
+	    }
         }
 
         if(accIndex != 0) cout << "Resuming from accession: " << accIDs[accIndex] << endl;
@@ -250,6 +245,17 @@ int main(int argc, char** argv){
             sam_FN = directory + "/" + acc_ID + ".sam";
             bam_FN = directory + "/" + acc_ID + ".bam";
             sample_bam_FN = directory + "/" + sample_ID + ".bam";
+
+	    if(!access(bam_FN.c_str() ,X_OK)){
+		if((accIndex == accIDs.size() - 1) || // Assume *.bam files not at the end of the list are complete
+			!access(std::string(directory).append("/").append(accIDs[accIndex+1]).append(".bam").c_str(), X_OK)){
+                    cout << "Detected fragment *.BAM file for accession " << acc_ID << endl;
+		    goto checkMerge;
+                }
+                else{
+                    cout << "Found incomplete fragment " << acc_ID << " for sample " << sample_ID << ": resuming" << endl;
+                }
+	    }
 
             cout << "Obtaining read data for " << acc_ID << "... " << endl;
             strbuf << "bash wonderdump.sh -I --split-files --outdir " << directory << " " << acc_ID;
@@ -299,14 +305,15 @@ int main(int argc, char** argv){
             }
 
             if(access(bam_FN.c_str(), X_OK)){
-                cout << "Failed to produce *.BAM format for accession " << acc_ID << endl;
-                cout << "Exiting...";
-                break;
-            }
-            else
-                cout << "Successfully produced *.BAM format for accession " << acc_ID << endl;
+       	         cout << "Failed to produce *.BAM format for accession " << acc_ID << endl;
+        	 cout << "Exiting...";
+       	         break;
+       	    }
+            else{
+        	 cout << "Successfully produced *.BAM format for accession " << acc_ID << endl;
+	    }
 
-        }
+	checkMerge:;
 
         if((accIndex == sampleIDs.size() - 1) ||
                     (sample_ID != sampleIDs[accIndex+1])){ // Merge and sort if all BAM files for this sample have been accounted for
@@ -315,29 +322,30 @@ int main(int argc, char** argv){
             int i = accIndex;
             cout << "Merging:\n";
             while((i >= 0) && (sampleIDs[i] == sample_ID)){
-                parts.push_back(directory + "/" + accIDs[i] + ".bam");
-                if(access(parts.back().c_str(), X_OK)){
+                parts.insert(parts.begin(), directory + "/" + accIDs[i] + ".bam");
+                if(access(parts.front().c_str(), X_OK)){
                     cout << "Missing part: " << parts.back() << "\n";
                     cout << "Unable to complete sample " << sample_ID << endl;
                     return -1;
                 }
-                cout << '\t' << parts.back() << '\n';
                 --i;
             }
-            cout << "Into: " << sample_bam_FN << endl;
 
             strbuf << "samtools merge --threads " << to_string(numThreads) << " " << sample_bam_FN;
-            for(auto& p : parts){
-                strbuf << " " << p;
-            }
+	    for(auto& part : parts){
+		cout << '\t' << part << endl;
+		strbuf << " " << part;
+	    }
+            cout << "Into: " << sample_bam_FN << endl;
+          
             system(strbuf.str().c_str()); // Perform merge using samtools
             strbuf.str("");
 
             if(!access(sample_bam_FN.c_str(), X_OK)){
                 cout << "Successfully created sample *.BAM file:\n" << sample_bam_FN << endl;
-                for(auto& p : parts){ // Clean up parts
-                    if(!access(p.c_str(), X_OK)){
-                        remove(p.c_str());
+                for(auto& part : parts){ // Clean up parts
+                    if(!access(part.c_str(), X_OK)){
+                        remove(part.c_str());
                     }
                 }
 
@@ -359,12 +367,9 @@ int main(int argc, char** argv){
                 return -1;
             }
         }
+    }
 
-    }
-    else{
-        cout << "Could not find accession IDs in " << accFileName << endl;
-        return -1;
-    }
+    cout << "Processing complete" << endl;
 
     return 0;
 }
