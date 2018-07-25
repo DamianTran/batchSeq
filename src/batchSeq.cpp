@@ -65,7 +65,19 @@ int main(int argc, char** argv){
 
     string accFileName, // The filename for the accession IDs as an input to this program
                 genomeIndex, // The hisat2 genome index to align the reads to
-                directory; // The directory for output
+                directory, // The directory for output
+                homeDir = contextPath;
+
+    for(auto& c : homeDir){ // Forward slash is universally understood as a path branch delimiter
+        if(c == '\\') c = '/';
+    }
+
+    #ifdef __APPLE__
+    while(homeDir.back != '/') homeDir.pop_back(); // OSX path will contain the executable name - remove this
+    #endif
+
+    directory = homeDir; // By default, the directory is the path of the executable
+    genomeIndex = "C:/hisat2/index/grch38/genome"; // Requires hisat2 to be installed in the base drive directory
 
     unsigned int numThreads = 4;
 
@@ -106,22 +118,18 @@ int main(int argc, char** argv){
         }
     }
 
-    if(directory.empty()){
-        directory = contextPath; // Use the directory of the executable if not defined by user
-        #ifdef __APPLE__
-        while(directory.back != '/') directory.pop_back(); // OSX path will contain the executable name - remove this
-        #endif
+    if(accFileName.empty()){
+        accFileName = directory + "/SraRunTable.txt"; /* By default, the accession filename
+                                            is the default downloaded from the NCBI trace database for a bioproject */
     }
 
-    for(auto& c : directory){ // Forward slash is universally understood as a path branch delimiter
+    for(auto& c : directory){
         if(c == '\\') c = '/';
     }
 
-    if(accFileName.empty())
-        accFileName = directory + "/SraRunTable.txt"; /* By default, the accession filename
-                                            is the default downloaded from the NCBI trace database for a bioproject */
-    if(genomeIndex.empty())
-        genomeIndex = "C:/hisat2/index/grch38/genome"; // Requires hisat2 to be installed in the base drive directory
+    while(directory.back() == '/') directory.pop_back(); // Format to fit algorithms
+
+    system(std::string("cd ").append(homeDir).c_str());
 
     if(access(accFileName.c_str(), X_OK)){
         cout << "Could not find accession file\n";
@@ -201,33 +209,51 @@ int main(int argc, char** argv){
                     bam_FN,
                     sample_bam_FN,
                     sample_sorted_FN,
-                    acc_ID;
+                    acc_ID,
+                    sample_ID;
 
         unsigned int accIndex = 0;
         for(; accIndex < accIDs.size(); ++accIndex){ // Pre-check for processed files if resuming
-            bam_FN = directory + "/" + accIDs[accIndex] + ".bam";
-            sample_bam_FN = directory + "/" + sampleIDs[accIndex] + ".bam";
+            acc_ID = accIDs[accIndex];
+            sample_ID = sampleIDs[accIndex];
+
+            bam_FN = directory + "/" + acc_ID + ".bam";
+            sample_bam_FN = directory + "/" + sample_ID + ".bam";
 
             if(!access(sample_bam_FN.c_str(), X_OK)){
-                if(!access(bam_FN.c_str(), X_OK)){ // Detect if a bam file is present for this sample indicating partial processing
-                    remove(bam_FN.c_str()); // Stop at this accession index and reprocess the BAM file
+                cout << "Detected assembled *.BAM file for " << sample_ID << ": skipping" << endl;
+                while(sample_ID == sampleIDs[accIndex]) ++accIndex;
+                acc_ID = accIDs[accIndex];
+                bam_FN = directory + "/" + acc_ID + ".bam";
+            }
+            if(!access(bam_FN.c_str(), X_OK)){ // Detect if a bam file is present for this sample indicating partial processing
+                if(!access(std::string(directory).append("/").append(accIDs[accIndex+1]).append(".bam").c_str(), X_OK)){
+                    cout << "Detected fragment *.BAM file for accession " << acc_ID << ": skipping" << endl;
+                }
+                else{
+//                    remove(bam_FN.c_str()); // Delete and resume from this point
+                    cout << "Found incomplete fragment " << bam_FN << ": resuming" << endl;
                     break;
                 }
             }
         }
 
+        if(accIndex != 0) cout << "Resuming from accession: " << accIDs[accIndex] << endl;
+
         for(; accIndex < accIDs.size(); ++accIndex){ // Download and process the reads one accession at a time
 
             acc_ID = accIDs[accIndex];
+            sample_ID = sampleIDs[accIndex];
 
             fastq_1_FN = directory + "/" + acc_ID + "_1.fastq";
             fastq_2_FN = directory + "/" + acc_ID + "_2.fastq";
             sam_FN = directory + "/" + acc_ID + ".sam";
             bam_FN = directory + "/" + acc_ID + ".bam";
-            sample_bam_FN = directory + "/" + sampleIDs[accIndex] + ".bam";
+            sample_bam_FN = directory + "/" + sample_ID + ".bam";
 
             cout << "Obtaining read data for " << acc_ID << "... " << endl;
-            strbuf << "fastq-dump -I --split-files " << acc_ID << " --outdir " << directory;
+            strbuf << "bash wonderdump.sh -I --split-files --outdir " << directory << " " << acc_ID;
+            std::cout << strbuf.str() << endl;
             system(strbuf.str().c_str());
             strbuf.str("");
             cout << endl;
@@ -264,7 +290,7 @@ int main(int argc, char** argv){
             }
 
             cout << "Converting to *.BAM format ... " << endl;
-            strbuf << "samtools view -bS " << sam_FN << " > " << bam_FN;
+            strbuf << "samtools view -bS --threads " << to_string(numThreads) << ' ' << sam_FN << " > " << bam_FN;
             system(strbuf.str().c_str());
             strbuf.str("");
             cout << endl;
@@ -284,16 +310,16 @@ int main(int argc, char** argv){
         }
 
         if((accIndex == sampleIDs.size() - 1) ||
-                    (sampleIDs[accIndex] != sampleIDs[accIndex+1])){ // Merge and sort if all BAM files for this sample have been accounted for
+                    (sample_ID != sampleIDs[accIndex+1])){ // Merge and sort if all BAM files for this sample have been accounted for
 
             vector<string> parts; // Collect part accession IDs for this sample
             int i = accIndex;
             cout << "Merging:\n";
-            while((i >= 0) && (sampleIDs[i] == sampleIDs[accIndex])){
+            while((i >= 0) && (sampleIDs[i] == sample_ID)){
                 parts.push_back(directory + "/" + accIDs[i] + ".bam");
                 if(access(parts.back().c_str(), X_OK)){
                     cout << "Missing part: " << parts.back() << "\n";
-                    cout << "Unable to complete sample " << sampleIDs[accIndex] << endl;
+                    cout << "Unable to complete sample " << sample_ID << endl;
                     return -1;
                 }
                 cout << '\t' << parts.back() << '\n';
@@ -301,7 +327,7 @@ int main(int argc, char** argv){
             }
             cout << "Into: " << sample_bam_FN << endl;
 
-            strbuf << "samtools merge " << sample_bam_FN;
+            strbuf << "samtools merge --threads " << to_string(numThreads) << " " << sample_bam_FN;
             for(auto& p : parts){
                 strbuf << " " << p;
             }
@@ -316,7 +342,7 @@ int main(int argc, char** argv){
                     }
                 }
 
-                sample_sorted_FN = directory + "/" + sampleIDs[accIndex] + "_sorted.bam";
+                sample_sorted_FN = directory + "/" + sample_ID + "_sorted.bam";
 
                 strbuf << "samtools sort " << sample_bam_FN << " -o " << sample_sorted_FN;
                 cout << "Sorting: " << sample_bam_FN << endl;
