@@ -253,7 +253,6 @@ int main(int argc, char** argv){
 
             cout << "Obtaining read data for " << acc_ID << "... " << endl;
             strbuf << "bash wonderdump.sh -I --split-files --outdir " << directory << " " << acc_ID;
-            std::cout << strbuf.str() << endl;
             system(strbuf.str().c_str());
             strbuf.str("");
             cout << endl;
