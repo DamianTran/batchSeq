@@ -53,6 +53,8 @@ using namespace std;
 
 int main(int argc, char** argv){
 
+    vector<thread> allThreads; // Thread registry
+
     const size_t mP = 1000; // Get the executable directory
     char contextPath[mP];
 
@@ -212,7 +214,6 @@ int main(int argc, char** argv){
                     sam_FN,
                     bam_FN,
                     sample_bam_FN,
-                    sample_sorted_FN,
                     acc_ID,
                     sample_ID;
 
@@ -278,7 +279,7 @@ int main(int argc, char** argv){
                         -S [output file]
                 */
 
-                strbuf << "perl C:/hisat2/hisat2 -q -p " << to_string(numThreads) << " -x "
+                strbuf << "perl C:/hisat2/hisat2 -q -p " << numThreads << " -x "
                         << genomeIndex << " -1 " << fastq_1_FN << " -2 "
                         << fastq_2_FN << " -S " << sam_FN;
 
@@ -295,7 +296,7 @@ int main(int argc, char** argv){
             }
 
             cout << "Converting to *.BAM format ... " << endl;
-            strbuf << "samtools view -bS --threads " << to_string(numThreads) << ' ' << sam_FN << " > " << bam_FN;
+            strbuf << "samtools view -bS --threads " << numThreads << ' ' << sam_FN << " > " << bam_FN;
             system(strbuf.str().c_str());
             strbuf.str("");
             cout << endl;
@@ -318,6 +319,12 @@ int main(int argc, char** argv){
         if((accIndex == sampleIDs.size() - 1) ||
                     (sample_ID != sampleIDs[accIndex+1])){ // Merge and sort if all BAM files for this sample have been accounted for
 
+	    allThreads.emplace_back([&, accIndex, sampleIDs, sample_ID, 
+					acc_ID, sample_bam_FN, numThreads](){ // Add a new thread to merge completed fragments
+										// While main thread continues on
+
+	    std::string sample_sorted_FN = directory + "/" + sample_ID + "_sorted.bam";
+
             vector<string> parts; // Collect part accession IDs for this sample
             int i = accIndex;
             cout << "Merging:\n";
@@ -331,7 +338,7 @@ int main(int argc, char** argv){
                 --i;
             }
 
-            strbuf << "samtools merge --threads " << to_string(numThreads) << " " << sample_bam_FN;
+            strbuf << "samtools merge --threads " << numThreads << " " << sample_bam_FN;
 	    for(auto& part : parts){
 		cout << '\t' << part << endl;
 		strbuf << " " << part;
@@ -349,8 +356,6 @@ int main(int argc, char** argv){
                     }
                 }
 
-                sample_sorted_FN = directory + "/" + sample_ID + "_sorted.bam";
-
                 strbuf << "samtools sort " << sample_bam_FN << " -o " << sample_sorted_FN;
                 cout << "Sorting: " << sample_bam_FN << endl;
                 system(strbuf.str().c_str());
@@ -366,7 +371,13 @@ int main(int argc, char** argv){
                 cout << "Unable to create sample *.BAM file:\n" << sample_bam_FN << endl;
                 return -1;
             }
+
+	    });
         }
+    }
+
+    for(auto& thread : allThreads){ // Wait for all merge threads to finish
+	thread.join();
     }
 
     cout << "Processing complete" << endl;
