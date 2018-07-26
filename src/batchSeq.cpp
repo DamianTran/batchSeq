@@ -230,10 +230,11 @@ int main(int argc, char** argv){
                 while(sample_ID == sampleIDs[accIndex]) ++accIndex;
             }
 	    else{
+		--accIndex;
 		break;
 	    }
         }
-
+	
         if(accIndex != 0) cout << "Resuming from accession: " << accIDs[accIndex] << endl;
 
         for(; accIndex < accIDs.size(); ++accIndex){ // Download and process the reads one accession at a time
@@ -319,7 +320,7 @@ int main(int argc, char** argv){
         if((accIndex == sampleIDs.size() - 1) ||
                     (sample_ID != sampleIDs[accIndex+1])){ // Merge and sort if all BAM files for this sample have been accounted for
 
-	    allThreads.emplace_back([&, accIndex, sampleIDs, sample_ID, 
+	    allThreads.emplace_back([&, directory, accIDs, accIndex, sampleIDs, sample_ID, 
 					acc_ID, sample_bam_FN, numThreads](){ // Add a new thread to merge completed fragments
 										// While main thread continues on
 
@@ -331,7 +332,7 @@ int main(int argc, char** argv){
             while((i >= 0) && (sampleIDs[i] == sample_ID)){
                 parts.insert(parts.begin(), directory + "/" + accIDs[i] + ".bam");
                 if(access(parts.front().c_str(), X_OK)){
-                    cout << "Missing part: " << parts.back() << "\n";
+                    cout << "Missing part: " << parts.front() << "\n";
                     cout << "Unable to complete sample " << sample_ID << endl;
                     return -1;
                 }
