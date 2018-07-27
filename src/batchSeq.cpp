@@ -324,6 +324,8 @@ int main(int argc, char** argv){
 					acc_ID, sample_bam_FN, numThreads](){ // Add a new thread to merge completed fragments
 										// While main thread continues on
 
+	    std::stringstream strbuf;
+
 	    std::string sample_sorted_FN = directory + "/" + sample_ID + "_sorted.bam";
 
             vector<string> parts; // Collect part accession IDs for this sample
