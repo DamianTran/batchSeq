@@ -211,6 +211,7 @@ int main(int argc, char** argv){
         stringstream strbuf;
         string fastq_1_FN,
                     fastq_2_FN,
+		    SRA_FN,
                     sam_FN,
                     bam_FN,
                     sample_bam_FN,
@@ -218,35 +219,25 @@ int main(int argc, char** argv){
                     sample_ID;
 
         unsigned int accIndex = 0;
-        for(; accIndex < accIDs.size(); ++accIndex){ // Pre-check for processed files if resuming
-            acc_ID = accIDs[accIndex];
-            sample_ID = sampleIDs[accIndex];
-
-            bam_FN = directory + "/" + acc_ID + ".bam";
-            sample_bam_FN = directory + "/" + sample_ID + ".bam";
-
-            if(!access(sample_bam_FN.c_str(), X_OK)){
-                cout << "Detected assembled *.BAM file for " << sample_ID << ": skipping" << endl;
-                while(sample_ID == sampleIDs[accIndex]) ++accIndex;
-            }
-	    else{
-		--accIndex;
-		break;
-	    }
-        }
-	
-        if(accIndex != 0) cout << "Resuming from accession: " << accIDs[accIndex] << endl;
 
         for(; accIndex < accIDs.size(); ++accIndex){ // Download and process the reads one accession at a time
-
-            acc_ID = accIDs[accIndex];
+		
             sample_ID = sampleIDs[accIndex];
+            sample_bam_FN = directory + "/" + sample_ID + ".bam";
 
-            fastq_1_FN = directory + "/" + acc_ID + "_1.fastq";
+	    while(!access(sample_bam_FN.c_str(), X_OK)){
+                cout << "Detected assembled *.BAM file for " << sample_ID << ": skipping" << endl;
+                while(sample_ID == sampleIDs[accIndex]) ++accIndex;
+		sample_ID = sampleIDs[accIndex];
+                sample_bam_FN = directory + "/" + sample_ID + ".bam";
+            }
+
+	    acc_ID = accIDs[accIndex];
+	    fastq_1_FN = directory + "/" + acc_ID + "_1.fastq";
             fastq_2_FN = directory + "/" + acc_ID + "_2.fastq";
+	    SRA_FN = "~/ncbi/public/sra/" + acc_ID + ".sra";
             sam_FN = directory + "/" + acc_ID + ".sam";
             bam_FN = directory + "/" + acc_ID + ".bam";
-            sample_bam_FN = directory + "/" + sample_ID + ".bam";
 
 	    if(!access(bam_FN.c_str() ,X_OK)){
 		if((accIndex == accIDs.size() - 1) || // Assume *.bam files not at the end of the list are complete
@@ -289,12 +280,15 @@ int main(int argc, char** argv){
                 cout << endl;
             }
 
-            if(!access(fastq_1_FN.c_str(), X_OK)){
+            if(!access(fastq_1_FN.c_str(), X_OK)){ // Clean up FASTA files
                 remove(fastq_1_FN.c_str());
             }
             if(!access(fastq_2_FN.c_str(), X_OK)){
                 remove(fastq_2_FN.c_str());
             }
+	    if(!access(SRA_FN.c_str(), X_OK)){     // Clean up SRA file
+		remove(SRA_FN.c_str());
+	    }
 
             cout << "Converting to *.BAM format ... " << endl;
             strbuf << "samtools view -bS --threads " << numThreads << ' ' << sam_FN << " > " << bam_FN;
