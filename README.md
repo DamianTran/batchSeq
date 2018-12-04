@@ -11,7 +11,7 @@
 
    >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
    
-   REQUIREMENTS:
+## REQUIREMENTS:
    
    	- Strawberry Perl >= 5.28.0
 	- Mingw64 and development toolchains (on Windows)
@@ -19,22 +19,24 @@
 	- Samtools and Htslib
 	- NCBI SRA Toolkit (for your OS)
    
-   BEFORE RUNNING:
+## BEFORE RUNNING:
 
         - In bash, set the PATH environment variable as follows (no spaces after the one following "export"):
-                export PATH=$PATH:/c/path/to/samtools/:/c/path/to/SRA/bin/
-		ie.    export PATH=$PATH:/c/samtools-develop/:/c/SRA/bin
-		-This has to be done once on each new bash terminal startup
+                `export PATH=$PATH:/c/path/to/samtools/:/c/path/to/SRA/bin/`
+		ie.    `export PATH=$PATH:/c/samtools-develop/:/c/SRA/bin`
+		( This has to be done once on each new bash terminal startup )
+		
         - Make sure a HISAT2 genome index is downloaded from the HISAT site
             - Recommended grch38_snp_tran to capture all possible transcripts
-        - If this is not in the C:/hisat2/index/ directory, you must specify it in the command line
-            by adding -gen /c/path/to/hisat2/index/grch38_snp_tran/genome
+	    
+        - If this is not in the C:/hisat2/index/ directory, you must specify it in the command line by adding -gen /c/path/to/hisat2/index/grch38_snp_tran/genome
+	
 	- Download a RunInfo table from the BioProject of interest from:
 		ncbi.nlm.nih.gov/Traces/study/
 		-Leave the filename as is (SraRunTable.txt) and move it to the directory
 		 where you want to download and process the reads
 
-   PARAMS:
+## PARAMS:
 
         -dir [directory]: The program will read from the SraRunTable file in the directory
                         specified by -dir and download, process, cleanup, merge, and sort
@@ -47,7 +49,7 @@
                         location that this base filename is located so that batchSeq can perform the transcript
                         alignments.
                                                                                                         
-    EXECUTION:
+ ## EXECUTION:
     
 	2 ways:
 
