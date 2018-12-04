@@ -125,7 +125,7 @@ int main(int argc, char** argv){
 
 
 
-    const size_t mP = 1000; // Get the executable directory
+    unsigned int mP = 1000; // Get the executable directory
 
     char contextPath[mP];
 
@@ -140,6 +140,8 @@ int main(int argc, char** argv){
     #elif defined __APPLE__
 
     _NSGetExecutablePath(contextPath, &mP);
+	
+    cout << "OS: APPLE\n";
 
     #endif
 
