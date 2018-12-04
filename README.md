@@ -29,7 +29,8 @@
         - Make sure a HISAT2 genome index is downloaded from the HISAT site
             - Recommended grch38_snp_tran to capture all possible transcripts
 	    
-        - If this is not in the C:/hisat2/index/ directory, you must specify it in the command line by adding -gen /c/path/to/hisat2/index/grch38_snp_tran/genome
+        - If this is not in the C:/hisat2/index/ directory, you must specify it 
+	in the command line by adding `-gen /c/path/to/hisat2/index/grch38_snp_tran/genome`
 	
 	- Download a RunInfo table from the BioProject of interest from:
 		ncbi.nlm.nih.gov/Traces/study/
